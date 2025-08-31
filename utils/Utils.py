@@ -57,7 +57,7 @@ def postprocessing(prediction, threshold=0.75, dataset='G'):
     else:
         prediction = torch.sigmoid(prediction).data.cpu().numpy()#将logit转化成概率值
 
-        #以下作为效果对比
+        #以下是效果对比
         # disc_mask = scipy.signal.medfilt2d(disc_mask, 7) #中值滤波，用于平滑边缘和去除椒盐噪声
         # cup_mask = scipy.signal.medfilt2d(cup_mask, 7)
         # disc_mask = morphology.erosion(disc_mask, morphology.diamond(3))  # 使用3*3的菱形核进行腐蚀操作，return 0,1
@@ -120,7 +120,7 @@ def save_val_img(path, epoch, img):
 
 
 
-def save_per_img(patch_image, data_save_path, img_name, prob_map, gt=None, mask_path=None, ext="bmp"):
+def save_per_img(patch_image, data_save_path, img_name, prob_map, gt=None, save_mask=False, ext="bmp"):
     path1 = os.path.join(data_save_path, 'overlay', img_name.split('.')[0]+'.png')
     path0 = os.path.join(data_save_path, 'original_image', img_name.split('.')[0]+'.png')
     if not os.path.exists(os.path.dirname(path0)):
@@ -128,8 +128,8 @@ def save_per_img(patch_image, data_save_path, img_name, prob_map, gt=None, mask_
     if not os.path.exists(os.path.dirname(path1)):
         os.makedirs(os.path.dirname(path1))
 
-    disc_map = prob_map[0] #结合后面，反向推理出输入的prob_map形状是C*H*W，两通道
-    cup_map = prob_map[1]
+    cup_map = prob_map[0] #结合后面，反向推理出输入的prob_map形状是C*H*W，两通道
+    disc_map = prob_map[1]
 
     ## 清除视盘概率图边界（避免边缘伪影影响轮廓检测）
     size = disc_map.shape
@@ -138,16 +138,24 @@ def save_per_img(patch_image, data_save_path, img_name, prob_map, gt=None, mask_
     disc_map[0, :] = np.zeros(size[1]) #上边界置零
     disc_map[size[0] - 1, :] = np.zeros(size[1]) #下边界置零
 
+    #清除视杯概率图边界
     size = cup_map.shape
     cup_map[:, 0] = np.zeros(size[0])
     cup_map[:, size[1] - 1] = np.zeros(size[0])
     cup_map[0, :] = np.zeros(size[1])
     cup_map[size[0] - 1, :] = np.zeros(size[1])
 
-    # disc_mask = (disc_map > 0.75) # return binary mask
-    # cup_mask = (cup_map > 0.75)
-    # disc_mask = disc_mask.astype(np.uint8)
-    # cup_mask = cup_mask.astype(np.uint8)
+    if save_mask: #保存预测掩码
+        path2 = os.path.join(data_save_path, 'pred_mask/')
+        if not osp.exists(path2):
+            os.makedirs(path2)
+
+        disc_mask = (disc_map > 0.75) * 255 # return binary mask
+        cup_mask = (cup_map > 0.75) * 255
+        disc_mask = Image.fromarray(disc_mask.astype(np.uint8))
+        cup_mask = Image.fromarray(cup_mask.astype(np.uint8))
+        disc_mask.save(path2+img_name.split('.')[0]+'_disc.'+ext)
+        cup_mask.save(path2+img_name.split('.')[0]+'_cup.'+ext)
 
 
     contours_disc = measure.find_contours(disc_map, 0.5) #以0.5为阈值寻找边界

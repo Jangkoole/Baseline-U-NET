@@ -461,6 +461,7 @@ class Normalize_tf(object):
         __mask = np.array(sample['label']).astype(np.uint8)
         img /= 127.5
         img -= 1.0
+        #由于前面返回的标签使用的是Image.BILINEAR插值，产生了新的标签值，所以这里需要做约束
         _mask = np.zeros([__mask.shape[0], __mask.shape[1]])
         _mask[__mask > 200] = 255
         # index = np.where(__mask > 50 and __mask < 201)

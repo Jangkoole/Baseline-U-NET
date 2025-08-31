@@ -13,9 +13,11 @@ import tqdm
 import socket
 from utils.metrics import *
 from utils.Utils import *
+from utils.loss import WeightedDiceLoss
 
 bceloss = torch.nn.BCELoss()
 mseloss = torch.nn.MSELoss()
+diceloss = WeightedDiceLoss(weights=[1.0,0.8])
 softmax = torch.nn.Softmax(-1)
 
 
@@ -88,8 +90,7 @@ class Trainer(object):
         val_cup_dice = 0
         val_disc_dice = 0
         metrics = []
-        #loss_cls = 0
-        with torch.no_grad():
+        with (torch.no_grad()):
 
             for batch_idx, sample in tqdm.tqdm(
                     enumerate(self.val_loader), total=len(self.val_loader),
@@ -105,12 +106,10 @@ class Trainer(object):
                 domain_code = domain_code.cuda()
 
                 with torch.no_grad():
-                    #predictions, domain_predict, hal_scale, sel_scale = self.model(data)
                     predictions = self.model(data)
 
-                loss_seg = bceloss(torch.sigmoid(predictions), target_map)
-                #loss_cls = mseloss(softmax(domain_predict), domain_code)
-                #loss_data = (loss_seg + loss_cls).data.item()
+                #验证时所用的dice损失
+                loss_seg = bceloss(torch.sigmoid(predictions), target_map)+ diceloss(torch.sigmoid(predictions),target_map)
                 loss_data = loss_seg.data.item()
                 if np.isnan(loss_data):
                     raise ValueError('loss is nan while validating')
@@ -124,11 +123,10 @@ class Trainer(object):
             val_disc_dice /= len(self.val_loader)
             metrics.append((val_loss, val_cup_dice, val_disc_dice))
             self.writer.add_scalar('val_data/loss', val_loss, self.epoch * (len(self.train_loader)))
-            #self.writer.add_scalar('val_data/loss_cls', loss_cls.data.item(), self.epoch * (len(self.train_loader)))
             self.writer.add_scalar('val_data/val_CUP_dice', val_cup_dice, self.epoch * (len(self.train_loader)))
             self.writer.add_scalar('val_data/val_DISC_dice', val_disc_dice, self.epoch * (len(self.train_loader)))
 
-            mean_dice = val_cup_dice + val_disc_dice
+            mean_dice = (val_cup_dice + val_disc_dice) / 2
             is_best = mean_dice > self.best_mean_dice
             if is_best:
                 self.best_epoch = self.epoch + 1
@@ -142,7 +140,7 @@ class Trainer(object):
                     'model_state_dict': self.model.state_dict(),
                     'learning_rate_gen': get_lr(self.optim),
                     'best_mean_dice': self.best_mean_dice,
-                }, osp.join(self.out, 'checkpoint_%d.pth.tar' % self.best_epoch))
+                }, osp.join(self.out, 'best_%s.pth.tar'%str(self.best_mean_dice)))
             else:
                 if (self.epoch + 1) % 20 == 0:
                     torch.save({
@@ -164,7 +162,6 @@ class Trainer(object):
         self.running_total_loss = 0.0
         self.running_cup_dice_tr = 0.0
         self.running_disc_dice_tr = 0.0
-        #self.running_cls_loss = 0
 
         start_time = timeit.default_timer()
         for batch_idx, sample in tqdm.tqdm(
@@ -192,19 +189,15 @@ class Trainer(object):
             image = image.cuda()
             target_map = label.cuda()
             domain_code = domain_code.cuda()
-            #output, domain_predict, hal_scale, sel_scale = self.model(image)
             output = self.model(image)
-            loss_seg = bceloss(torch.sigmoid(output), target_map)
-            #loss_cls = 0.1 * mseloss(softmax(domain_predict), domain_code)
+            #训练时所用的dice损失：以Tensor格式
+            loss_seg = bceloss(torch.sigmoid(output), target_map) + diceloss(torch.sigmoid(output), target_map)
 
             self.running_seg_loss += loss_seg.item()
-            #self.running_cls_loss += loss_cls.item()
-            #loss_data = (loss_cls + loss_seg).data.item()
             loss_data = loss_seg.data.item()
             if np.isnan(loss_data):
                 raise ValueError('loss is nan while training')
 
-            #loss = loss_cls + loss_seg
             loss = loss_seg
             loss.backward()
             self.optim.step()
@@ -228,14 +221,10 @@ class Trainer(object):
             # write loss log
             self.writer.add_scalar('train_gen/loss', loss_data, iteration)
             self.writer.add_scalar('train_gen/loss_seg', loss_seg.data.item(), iteration)
-            #self.writer.add_scalar('train_gen/loss_cls', loss_cls.data.item(), iteration)
 
         self.running_seg_loss /= len(self.train_loader)
-        #self.running_cls_loss /= len(self.train_loader)
         stop_time = timeit.default_timer()
 
-        # print('\n[Epoch: %d] lr:%f,  Average segLoss: %f, Average clsLoss: %f, Execution time: %.5f' %
-        #       (self.epoch, get_lr(self.optim), self.running_seg_loss, self.running_cls_loss, stop_time - start_time))
         print('\n[Epoch: %d] lr:%f,  Average segLoss: %f, Execution time: %.5f' %
               (self.epoch, get_lr(self.optim), self.running_seg_loss, stop_time - start_time))
 

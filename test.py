@@ -13,12 +13,12 @@ from torch.utils.data import DataLoader
 from dataloaders import custom_transforms as tr
 from torchvision import transforms
 from dataloaders import utils
-# from scipy.misc import imsave
+from networks.Unet_styleTransform import UNet_styleTransform
+#from scipy.misc import imsave
 from utils.Utils import joint_val_image, postprocessing, save_per_img
 from utils.metrics import *
 from datetime import datetime
 import pytz
-#from networks.deeplabv3 import *
 from networks.Unet import UNet
 import cv2
 import numpy as np
@@ -116,15 +116,11 @@ def main():
     parser.add_argument('--datasetTest', type=list, default=[1], help='test folder id contain images ROIs to test')
     parser.add_argument('--dataset', type=str, default='test', help='test folder id contain images ROIs to test')
     parser.add_argument('-g', '--gpu', type=int, default=0)
-
     parser.add_argument('--data-dir', default='./Fundus-doFE/Fundus/', help='data root path')
-    parser.add_argument('--out-stride', type=int, default=16, help='out-stride of deeplabv3+',)
-    parser.add_argument('--sync-bn', type=bool, default=False, help='sync-bn in deeplabv3+')
-    parser.add_argument('--freeze-bn', type=bool, default=False, help='freeze batch normalization of deeplabv3+')
-    parser.add_argument('--movingbn', type=bool, default=False, help='moving batch normalization of deeplabv3+ in the test phase',)
-    #parser.add_argument('--test-prediction-save-path', type=str, default='./results/rebuttle-0401/', help='Path root for test image and mask')
+    parser.add_argument('--movingbn', type=bool, default=False, help='moving batch normalization in the test phase',)
     parser.add_argument('--test-prediction-save-path', type=str, default='./results/rebuttle/',
                         help='Path root for test image and mask')
+    parser.add_argument('--save-mask',type=bool,default=False,help='save pred mask or not')
     args = parser.parse_args()
 
     os.environ['CUDA_VISIBLE_DEVICES'] = str(args.gpu)
@@ -142,9 +138,8 @@ def main():
     test_loader = DataLoader(db_test, batch_size=batch_size, shuffle=False, num_workers=1)
 
     # 2. model
-    # model = DeepLab(num_classes=2, backbone='mobilenet', output_stride=args.out_stride,
-    #                 sync_bn=args.sync_bn, freeze_bn=args.freeze_bn).cuda()
-    model = UNet(n_channels = 3, n_classes = 2, bilinear=False)
+    #model = UNet(n_channels = 3, n_classes = 2, bilinear=False)
+    model = UNet_styleTransform(n_channels=3,n_classes=2,bilinear=False,mixStyle_layers=[])
 
     if torch.cuda.is_available():
         model = model.cuda()
@@ -230,7 +225,7 @@ def main():
                 save_per_img(img.numpy().transpose(1, 2, 0), #由C*W*H转换为H*W*C
                              output_path,
                              img_name[i],
-                             lp, lt, mask_path=None, ext="bmp")
+                             lp, lt, save_mask=args.save_mask, ext="bmp")
 
     print('OC:', OC)
     print('OD:', OD)
@@ -257,8 +252,8 @@ def main():
         elapsed_time = (
                 datetime.now(pytz.timezone('Asia/Hong_Kong')) -
                 timestamp_start).total_seconds()
-        log = [['batch-size: '] + [batch_size] + [args.model_file] + ['cup dice coefficence: '] + \
-               [val_cup_dice] + ['disc dice coefficence: '] + \
+        log = [['batch-size: '] + [batch_size] + [args.model_file] + ['cup dice coefficient: '] + \
+               [val_cup_dice] + ['disc dice coefficient: '] + \
                [val_disc_dice] + ['average_hd_OC: '] + \
                [total_hd_OC] + ['average_hd_OD: '] + \
                [total_hd_OD] + ['ave_asd_OC: '] + \

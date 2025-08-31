@@ -3,9 +3,6 @@
 import argparse
 import os
 import os.path as osp
-import torch.nn.functional as F
-
-import torch
 from torch.autograd import Variable
 import tqdm
 from dataloaders import fundus_dataloader as DL
@@ -13,7 +10,6 @@ from torch.utils.data import DataLoader
 from dataloaders import custom_transforms as tr
 from torchvision import transforms
 from dataloaders import utils
-# from scipy.misc import imsave
 from utils.Utils import joint_val_image, postprocessing, save_per_img
 from utils.metrics import *
 from datetime import datetime
@@ -36,7 +32,7 @@ def construct_color_img(prob_per_slice):
 
 def normalize_ent(ent):
     '''
-    Normalizate ent to 0 - 1
+    Normalize ent to 0 - 1
     :param ent:
     :return:
     '''
@@ -49,12 +45,12 @@ def normalize_ent(ent):
 
 
 def draw_ent(prediction, save_root, name):
-    '''
+    """
     Draw the entropy information for each img and save them to the save path
     :param prediction: [2, h, w] numpy
     :param save_path: string including img name
     :return: None
-    '''
+    """
     if not os.path.exists(os.path.join(save_root, 'disc')):
         os.makedirs(os.path.join(save_root, 'disc'))
     if not os.path.exists(os.path.join(save_root, 'cup')):
@@ -74,12 +70,12 @@ def draw_ent(prediction, save_root, name):
 
 
 def draw_mask(prediction, save_root, name):
-    '''
+    """
     Draw the mask probability for each img and save them to the save path
    :param prediction: [2, h, w] numpy
    :param save_path: string including img name
    :return: None
-   '''
+   """
     if not os.path.exists(os.path.join(save_root, 'disc')):
         os.makedirs(os.path.join(save_root, 'disc'))
     if not os.path.exists(os.path.join(save_root, 'cup')):
@@ -95,12 +91,12 @@ def draw_mask(prediction, save_root, name):
 
 
 def draw_boundary(prediction, save_root, name):
-    '''
+    """
     Draw the mask probability for each img and save them to the save path
    :param prediction: [2, h, w] numpy
    :param save_path: string including img name
    :return: None
-   '''
+   """
     if not os.path.exists(os.path.join(save_root, 'boundary')):
         os.makedirs(os.path.join(save_root, 'boundary'))
     boundary = prediction[0]
@@ -111,55 +107,22 @@ def draw_boundary(prediction, save_root, name):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument('--model-file', type=str, default='./logs/test1/20190506_221021.177567/checkpoint_200.pth.tar',
-                        help='Model path')
-    parser.add_argument(
-        '--datasetTest', type=list, default=[1], help='test folder id contain images ROIs to test'
-    )
-    parser.add_argument(
-        '--dataset', type=str, default='test', help='test folder id contain images ROIs to test'
-    )
+    parser.add_argument('--model-file', type=str, default='./logs/test1/20190506_221021.177567/checkpoint_200.pth.tar',help='Model path')
+    parser.add_argument('--datasetTest', type=list, default=[1], help='test folder id contain images ROIs to test')
+    parser.add_argument('--dataset', type=str, default='test', help='test folder id contain images ROIs to test')
     parser.add_argument('-g', '--gpu', type=int, default=0)
-
-    parser.add_argument(
-        '--data-dir',
-        default='../../../../Dataset/Fundus/',
-        help='data root path'
-    )
-    parser.add_argument(
-        '--out-stride',
-        type=int,
-        default=16,
-        help='out-stride of deeplabv3+',
-    )
-    parser.add_argument(
-        '--sync-bn',
-        type=bool,
-        default=False,
-        help='sync-bn in deeplabv3+',
-    )
-    parser.add_argument(
-        '--freeze-bn',
-        type=bool,
-        default=False,
-        help='freeze batch normalization of deeplabv3+',
-    )
-    parser.add_argument(
-        '--movingbn',
-        type=bool,
-        default=True,
-        help='moving batch normalization of deeplabv3+ in the test phase',
-    )
-    parser.add_argument('--test-prediction-save-path', type=str,
-                        default='./results/movingbn/',
-                        help='Path root for test image and mask')
+    parser.add_argument('--data-dir',default='../../../../Dataset/Fundus/',help='data root path')
+    parser.add_argument('--out-stride',type=int,default=16,help='out-stride of deeplabv3+',)
+    parser.add_argument('--sync-bn',type=bool,default=False,help='sync-bn in deeplabv3+',)
+    parser.add_argument('--freeze-bn',type=bool,default=False,help='freeze batch normalization of deeplabv3+')
+    parser.add_argument('--movingbn',type=bool,default=True,help='moving batch normalization of deeplabv3+ in the test phase',)
+    parser.add_argument('--test-prediction-save-path', type=str,default='./results/movingbn/',help='Path root for test image and mask')
     args = parser.parse_args()
 
     os.environ['CUDA_VISIBLE_DEVICES'] = str(args.gpu)
     model_file = args.model_file
 
     output_path = os.path.join(args.test_prediction_save_path, 'test' + str(args.datasetTest[0]), args.model_file.split('/')[-2])
-
 
 
     # 1. dataset
@@ -185,8 +148,7 @@ def main():
 
     if torch.cuda.is_available():
         model = model.cuda()
-    print('==> Loading %s model file: %s' %
-          (model.__class__.__name__, model_file))
+    print('==> Loading %s model file: %s' % (model.__class__.__name__, model_file))
     # model_data = torch.load(model_file)
 
     checkpoint = torch.load(model_file)
@@ -222,8 +184,7 @@ def main():
     OC = []
     OD = []
 
-    for batch_idx, (sample) in tqdm.tqdm(enumerate(test_loader),
-                                         total=len(test_loader),
+    for batch_idx, (sample) in tqdm.tqdm(enumerate(test_loader),total=len(test_loader),
                                          ncols=80, leave=False):
         data = sample['image']
         target = sample['label']
@@ -252,19 +213,19 @@ def main():
                 hd_OC = 100
                 asd_OC = 100
             else:
-                hd_OC = binary.hd95(np.asarray(prediction_post[0, ...], dtype=np.bool),
-                                    np.asarray(target_numpy[i, 0, ...], dtype=np.bool))
-                asd_OC = binary.asd(np.asarray(prediction_post[0, ...], dtype=np.bool),
-                                    np.asarray(target_numpy[i, 0, ...], dtype=np.bool))
+                hd_OC = binary.hd95(np.asarray(prediction_post[0, ...], dtype=np.bool_),
+                                    np.asarray(target_numpy[i, 0, ...], dtype=np.bool_))
+                asd_OC = binary.asd(np.asarray(prediction_post[0, ...], dtype=np.bool_),
+                                    np.asarray(target_numpy[i, 0, ...], dtype=np.bool_))
             if np.sum(prediction_post[0, ...]) < 1e-4:
                 hd_OC = 100
                 asd_OC = 100
             else:
-                hd_OD = binary.hd95(np.asarray(prediction_post[1, ...], dtype=np.bool),
-                                    np.asarray(target_numpy[i, 1, ...], dtype=np.bool))
+                hd_OD = binary.hd95(np.asarray(prediction_post[1, ...], dtype=np.bool_),
+                                    np.asarray(target_numpy[i, 1, ...], dtype=np.bool_))
 
-                asd_OD = binary.asd(np.asarray(prediction_post[1, ...], dtype=np.bool),
-                                    np.asarray(target_numpy[i, 1, ...], dtype=np.bool))
+                asd_OD = binary.asd(np.asarray(prediction_post[1, ...], dtype=np.bool_),
+                                    np.asarray(target_numpy[i, 1, ...], dtype=np.bool_))
             val_cup_dice += cup_dice
             val_disc_dice += disc_dice
             total_hd_OC += hd_OC

@@ -6,13 +6,12 @@ from torch.utils.data import Dataset
 from mypath import Path
 from glob import glob
 import random
-import copy
 
 
 class FundusSegmentation(Dataset):
     """
     Fundus segmentation dataset
-    including 5 domain dataset
+    including 4 domain dataset
     one for test others for training
     """
 
@@ -46,10 +45,9 @@ class FundusSegmentation(Dataset):
         random.seed(SEED)
         for id in splitid:
             self._image_dir = os.path.join(self._base_dir, 'Domain'+str(id), phase, 'ROIs/image/') #使用ROI
-            #self._image_dir = os.path.join(self._base_dir, 'Domain' + str(id), phase, 'image/') #不使用ROI
             print('==> Loading {} data from: {}'.format(phase, self._image_dir))
 
-            imagelist = glob(self._image_dir + '*.png') #注意要修改数据集后缀
+            imagelist = glob(self._image_dir + '*.png')
             for image_path in imagelist:
                 gt_path = image_path.replace('image', 'mask')
                 self.image_list.append({'image': image_path, 'label': gt_path})
@@ -74,7 +72,7 @@ class FundusSegmentation(Dataset):
                 del self.label_pool[key]
                 del self.img_name_pool[key]
                 break
-        # Display stats
+
         print('-----Total number of images in {}: {:d}'.format(phase, len(self.image_list)))
 
     def __len__(self):
@@ -107,7 +105,7 @@ class FundusSegmentation(Dataset):
                 anco_sample = {'image': _img, 'label': _target, 'img_name': _img_name, 'dc': domain_code}
                 if self.transform is not None:
                     anco_sample = self.transform(anco_sample)
-                sample=anco_sample
+                sample = anco_sample
         return sample
 
     def _read_img_into_memory(self):
@@ -126,7 +124,7 @@ class FundusSegmentation(Dataset):
             else:
                 print("[ERROR:] Unknown dataset!")
                 return 0
-            if self.splitid[0] == '4':
+            if self.splitid[0] == 4:
                 # self.image_pool[Flag].append(Image.open(self.image_list[index]['image']).convert('RGB').resize((256, 256), Image.LANCZOS))
                 self.image_pool[Flag].append(Image.open(self.image_list[index]['image']).convert('RGB').crop((144, 144, 144+512, 144+512)).resize((256, 256), Image.LANCZOS))
                 _target = np.asarray(Image.open(self.image_list[index]['label']).convert('L'))
@@ -138,21 +136,18 @@ class FundusSegmentation(Dataset):
                 # self.image_pool[Flag].append(Image.open(self.image_list[index]['image']).convert('RGB'))
                 _target = Image.open(self.image_list[index]['label'])
 
-            if _target.mode is 'RGB':
+            if _target.mode == 'RGB':
                 _target = _target.convert('L')
             if self.state != 'prediction':
-                _target = _target.resize((256, 256))
-            # print(_target.size)
-            # print(_target.mode)
+                _target = _target.resize((256, 256),Image.NEAREST)
             self.label_pool[Flag].append(_target)
-            # if self.split[0:4] in 'test':
             _img_name = self.image_list[index]['image'].split('/')[-1]
             self.img_name_pool[Flag].append(_img_name)
 
 
 
     def __str__(self):
-        return 'Fundus(phase=' + self.phase+str(args.datasetTest[0]) + ')'
+        return 'Fundus Dataset, phase= '+self.phase+', using data from domain'+str(self.splitid)
 
 
 if __name__ == '__main__':
@@ -163,13 +158,14 @@ if __name__ == '__main__':
     import matplotlib.pyplot as plt
 
     composed_transforms_tr = transforms.Compose([
-        tr.RandomHorizontalFlip(),
-        tr.RandomSized(512),
-        tr.RandomRotate(15),
+        #tr.RandomHorizontalFlip(),
+        #tr.RandomSized(512),
+        #tr.RandomRotate(15),
+        tr.Normalize_tf(),
         tr.ToTensor()])
 
-    voc_train = FundusSegmentation(split='train1',
-                                   transform=composed_transforms_tr)
+    voc_train = FundusSegmentation(splitid=[1],
+                                   transform=composed_transforms_tr,phase='test')
 
     dataloader = DataLoader(voc_train, batch_size=5, shuffle=True, num_workers=2)
 

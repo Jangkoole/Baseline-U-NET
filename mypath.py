@@ -6,7 +6,7 @@ class Path(object):
         elif database == 'sbd':
             return '/path/to/Segmentation/benchmark_RELEASE/' # folder that contains dataset/.
         elif database == 'cityscapes':
-            return '/path/to/Segmentation/cityscapes/'         # foler that contains leftImg8bit/
+            return '/path/to/Segmentation/cityscapes/'         # folder that contains leftImg8bit/
         elif database == 'fundus':
             return './Fundus-doFE/Fundus/'  # folder that contains leftImg8bit/
         else:
