@@ -223,7 +223,7 @@ def main():
     evaluation_results = evaluate_clustering(
         features_reduced,  # 降维后的特征
         cluster_labels,  # 聚类标签
-        output_dir="./"  # 输出目录
+        output_dir="../"  # 输出目录
     )
 
 

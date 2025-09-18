@@ -191,7 +191,7 @@ def main():
         asd_OC = 100
         hd_OD = 100
         asd_OD = 100
-        for i in range(prediction.shape[0]): #可以你想推理出prediction的形状是B*C*W*H
+        for i in range(prediction.shape[0]): #可以推理出prediction的形状是B*C*W*H
             prediction_post = postprocessing(prediction[i], dataset=args.dataset) #prediction_post的形状是标准的C*H*W
             cup_dice, disc_dice = dice_coeff_2label(prediction_post, target[i])
             OC.append(cup_dice)

@@ -28,17 +28,17 @@ import tqdm
 # print(label3_tensor.dtype)
 
 
-parser = argparse.ArgumentParser(
-    formatter_class=argparse.ArgumentDefaultsHelpFormatter,
-)
-
-parser.add_argument('--data-dir', default='./Fundus-doFE/Fundus/', help='data root path')
-parser.add_argument('--dataset-train',nargs='+', type=int, default=1,
-                    help='train folder id')
-parser.add_argument('--dataset-test',nargs='+',type=int,default=4,
-                    help='test folder id contain images ROIs to test one of [1,2,3,4]')
-parser.add_argument('--batch-size',type=int,default=8,help='batch size for training the model')
-args = parser.parse_args()
+# parser = argparse.ArgumentParser(
+#     formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+# )
+#
+# parser.add_argument('--data-dir', default='./Fundus-doFE/Fundus/', help='data root path')
+# parser.add_argument('--dataset-train',nargs='+', type=int, default=1,
+#                     help='train folder id')
+# parser.add_argument('--dataset-test',nargs='+',type=int,default=4,
+#                     help='test folder id contain images ROIs to test one of [1,2,3,4]')
+# parser.add_argument('--batch-size',type=int,default=8,help='batch size for training the model')
+# args = parser.parse_args()
 
 #2 argparse返回数据类型测试
 #print(args)
@@ -94,5 +94,44 @@ args = parser.parse_args()
 #标签值经过tr.Normalize_tf()变成两通道的one-hot编码格式(2通道),数据格式变成Tensor,数据类型是image(torch.float32),label(torch.float32)
 #之所以把label的数据类型保存为torch.float32，可能是因为后面不用计算交叉熵损失（nn.CrossEntropyLoss），只需要计算Dice等
 
-splitid=[2,3,4]
-print(str(splitid))
+import os
+from PIL import Image
+
+
+def read_data(root_dir=r'D:\dev\python\Datasets\Fundus-doFE\Fundus', domain_num=4):
+    images = []
+    masks = []
+    domain_labels = []
+    print('Reading data...')
+    last = 0
+    for i in range(domain_num):
+        file_dir = os.path.join(root_dir, 'Domain' + str(i + 1), 'train\ROIs\image')
+        image_paths = [os.path.join(file_dir, image_name) for image_name in os.listdir(file_dir)]
+        test_file_dir = file_dir.replace('train', 'test')
+        image_paths.extend([os.path.join(test_file_dir, image_name) for image_name in os.listdir(test_file_dir)])
+        # for path in image_paths:
+        #     print(path)
+
+        images.extend([np.array(Image.open(image_path)) for image_path in image_paths])
+
+        mask_paths = [image_path.replace('image', 'mask') for image_path in image_paths]
+        masks.extend([convert_mask(mask_path) for mask_path in mask_paths])
+        domain_labels.extend([int(image_path.split(os.sep)[-5][-1]) - 1 for image_path in image_paths])
+        #print(domain_labels)
+        print(f'Read {(len(image_paths) - last)} images from Domain {i}')
+    print(f'Read {len(images)} images from {root_dir}')
+    return images, masks, domain_labels
+
+
+def convert_mask(mask_path):
+    mask = np.array(Image.open(mask_path))
+    converted = np.zeros_like(mask, dtype=np.uint8)
+
+    # 将视杯映射为1
+    converted[mask == 128] = 1
+    # 将视盘映射为2
+    converted[mask == 0] = 2
+    return converted
+if __name__ == '__main__':
+    images,masks,domain_labels = read_data()
+    print(len(masks),masks[0].dtype)

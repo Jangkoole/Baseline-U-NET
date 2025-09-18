@@ -128,7 +128,7 @@ class UNet_styleTransform(nn.Module):
 
 if __name__ == '__main__':
     print('UNet test : ')
-    model = UNet_StyleTransform(n_channels=3, n_classes=2, bilinear=False)
+    model = UNet_styleTransform(n_channels=3, n_classes=2, bilinear=False)
     input_data = torch.randn(1,3,800,800)
     output = model(input_data)
     print(output.shape)
